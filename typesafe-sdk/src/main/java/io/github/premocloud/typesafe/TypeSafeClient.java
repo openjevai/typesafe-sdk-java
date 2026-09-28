@@ -17,6 +17,7 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,6 +51,14 @@ public final class TypeSafeClient {
     public static final String API_KEY_ENV = "TYPESAFE_API_KEY";
     public static final String BASE_URL_ENV = "TYPESAFE_BASE_URL";
     public static final String DEFAULT_MODEL_ENV = "TYPESAFE_DEFAULT_MODEL";
+
+    /** OpenJEV is a free community gateway to the same Jev model. These are used when the OpenJEV provider is selected. */
+    public static final String OPENJEV_DEFAULT_BASE_URL = "https://api.openjev.sh";
+    public static final String OPENJEV_DEFAULT_MODEL = "openjev";
+    public static final String OPENJEV_API_KEY_ENV = "OPENJEV_API_KEY";
+    public static final String JEV_PROVIDER_ENV = "JEV_PROVIDER";
+    public static final String PROVIDER_TYPESAFE = "typesafe";
+    public static final String PROVIDER_OPENJEV = "openjev";
 
     static final String SYSTEM_ONE_PATH = "/v1/systemone";
     static final String RETRY_COUNT_HEADER = "X-TypeSafe-Retry-Count";
@@ -441,6 +450,7 @@ public final class TypeSafeClient {
         private @Nullable String apiKey;
         private @Nullable String baseUrl;
         private @Nullable String defaultModel;
+        private @Nullable String provider;
         private Duration timeout = DEFAULT_TIMEOUT;
         private RetryPolicy retryPolicy = RetryPolicy.DEFAULT;
         private final Map<String, String> headers = new LinkedHashMap<>();
@@ -462,6 +472,16 @@ public final class TypeSafeClient {
         /** Model for requests that do not set one. Falls back to {@value #DEFAULT_MODEL_ENV}, then {@value #DEFAULT_MODEL}. */
         public Builder defaultModel(String defaultModel) {
             this.defaultModel = defaultModel;
+            return this;
+        }
+
+        /**
+         * Selects the API provider: {@value #PROVIDER_TYPESAFE} (default, unchanged) or {@value #PROVIDER_OPENJEV}.
+         * Falls back to {@value #JEV_PROVIDER_ENV}, then auto-detection: TypeSafe when {@value #API_KEY_ENV} is set,
+         * otherwise OpenJEV when {@value #OPENJEV_API_KEY_ENV} is set. Anyone with a TypeSafe key sees zero change.
+         */
+        public Builder provider(String provider) {
+            this.provider = provider;
             return this;
         }
 
@@ -499,13 +519,53 @@ public final class TypeSafeClient {
         }
 
         public TypeSafeClient build() {
-            apiKey = resolve(apiKey, API_KEY_ENV, "");
+            boolean openjev = PROVIDER_OPENJEV.equals(resolveProvider(provider));
+            String keyEnv = openjev ? OPENJEV_API_KEY_ENV : API_KEY_ENV;
+
+            apiKey = resolve(apiKey, keyEnv, "");
 
             if (apiKey.isBlank()) {
-                throw new TypeSafeException("No API key was provided. Pass apiKey to the builder or set the " + API_KEY_ENV + " environment variable.");
+                throw new TypeSafeException("No API key was provided. Pass apiKey to the builder or set the " + keyEnv + " environment variable.");
+            }
+
+            // When no explicit base URL / model is given, pick the provider's default so the
+            // constructor's env-then-fallback resolution lands on the right endpoint and model.
+            String envBaseUrl = System.getenv(BASE_URL_ENV);
+            if ((baseUrl == null || baseUrl.isBlank()) && (envBaseUrl == null || envBaseUrl.isBlank())) {
+                baseUrl = openjev ? OPENJEV_DEFAULT_BASE_URL : DEFAULT_BASE_URL;
+            }
+
+            String envModel = System.getenv(DEFAULT_MODEL_ENV);
+            if ((defaultModel == null || defaultModel.isBlank()) && (envModel == null || envModel.isBlank())) {
+                defaultModel = openjev ? OPENJEV_DEFAULT_MODEL : DEFAULT_MODEL;
             }
 
             return new TypeSafeClient(this);
+        }
+
+        private static String resolveProvider(@Nullable String explicit) {
+            if (Objects.nonNull(explicit) && !explicit.isBlank()) {
+                return explicit.trim().toLowerCase(Locale.ROOT);
+            }
+
+            String fromEnv = System.getenv(JEV_PROVIDER_ENV);
+            if (Objects.nonNull(fromEnv) && !fromEnv.isBlank()) {
+                return fromEnv.trim().toLowerCase(Locale.ROOT);
+            }
+
+            // TypeSafe key set → TypeSafe, exactly as before (default unchanged).
+            String typesafeKey = System.getenv(API_KEY_ENV);
+            if (Objects.nonNull(typesafeKey) && !typesafeKey.isBlank()) {
+                return PROVIDER_TYPESAFE;
+            }
+
+            // Only OpenJEV key set → OpenJEV.
+            String openjevKey = System.getenv(OPENJEV_API_KEY_ENV);
+            if (Objects.nonNull(openjevKey) && !openjevKey.isBlank()) {
+                return PROVIDER_OPENJEV;
+            }
+
+            return PROVIDER_TYPESAFE;
         }
     }
 }

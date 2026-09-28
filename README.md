@@ -13,6 +13,8 @@ TypeSafe AI. It follows the conventions of the official [Python](https://github.
 [JavaScript](https://github.com/typesafe-ai/typesafe-sdk-js) SDKs so the three read alike. TypeSafe is a trademark of
 its owner; the name is used here only to describe what the library connects to.
 
+**OpenJEV support:** Jev is built by [TypeSafe](https://typesafe.ai). This fork keeps TypeSafe as the default and adds optional support for [OpenJEV](https://openjev.sh), a free community gateway to the same Jev model — set `OPENJEV_API_KEY` (or `JEV_PROVIDER=openjev`) to use it. Original project: https://github.com/Premo-Cloud/typesafe-sdk-java by @GarretPremo.
+
 Requires Java 17 or newer.
 
 ## Install
@@ -227,6 +229,19 @@ TypeSafeClient client = TypeSafeClient.builder()
         .httpClient(myHttpClient)              // optional: proxies, executors
         .objectMapper(myObjectMapper)          // optional: custom serializers for your state types
         .build();
+```
+
+### OpenJEV
+
+[OpenJEV](https://openjev.sh) is a free community gateway to the same Jev model. Set `OPENJEV_API_KEY` instead of
+`TYPESAFE_API_KEY` and the client auto-selects it; or pass `JEV_PROVIDER=openjev` to force it. TypeSafe remains the
+default whenever `TYPESAFE_API_KEY` is set, so existing setups are unchanged.
+
+```java
+TypeSafeClient client = TypeSafeClient.builder()
+        .provider("openjev")                   // or JEV_PROVIDER=openjev; auto-detected from which key is set
+        .apiKey(openjevKey)                     // or OPENJEV_API_KEY
+        .build();                               // base URL defaults to https://api.openjev.sh, model to "openjev"
 ```
 
 ## Logging

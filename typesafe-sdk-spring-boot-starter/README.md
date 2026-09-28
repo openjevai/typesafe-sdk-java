@@ -36,10 +36,22 @@ Spring maps `TYPESAFE_API_KEY` onto `typesafe.api-key` automatically. The same h
 
 | Property | Environment variable | Default | Purpose |
 |---|---|---|---|
-| `typesafe.api-key` | `TYPESAFE_API_KEY` | none, required | Bearer token. The bean is created only when this is non-blank, so `${TYPESAFE_API_KEY:}` is safe on machines without the variable. |
+| `typesafe.api-key` | `TYPESAFE_API_KEY` | none, required | Bearer token. The bean is created only when this or `openjev-api-key` is non-blank, so `${TYPESAFE_API_KEY:}` is safe on machines without the variable. |
 | `typesafe.base-url` | `TYPESAFE_BASE_URL` | `https://api.typesafe.ai` | API root. |
 | `typesafe.default-model` | `TYPESAFE_DEFAULT_MODEL` | `jev-latest` | Model for requests that do not name one. |
 | `typesafe.timeout` | `TYPESAFE_TIMEOUT` | `10s` | Per-attempt timeout, as a Spring duration such as `30s` or `PT1M`. |
+| `typesafe.provider` | `JEV_PROVIDER` | auto | `typesafe` or `openjev`. When unset, auto-detected: TypeSafe when `api-key` is set (unchanged default), otherwise OpenJEV. |
+| `typesafe.openjev-api-key` | `OPENJEV_API_KEY` | none | OpenJEV bearer token. Used when `provider` is `openjev`, or auto-selected when only this key is set. |
+
+### OpenJEV
+
+[OpenJEV](https://openjev.sh) is a free community gateway to the same Jev model. Set `typesafe.openjev-api-key`
+instead of `typesafe.api-key` and the starter auto-selects it; or set `typesafe.provider=openjev` to force it.
+TypeSafe remains the default whenever `typesafe.api-key` is set, so existing setups are unchanged.
+
+```properties
+typesafe.openjev-api-key=${OPENJEV_API_KEY}
+```
 
 Properties, YAML, environment variables, command-line arguments, and config servers all work, with Spring's usual
 precedence. IDEs offer completion for these keys from the generated configuration metadata.
